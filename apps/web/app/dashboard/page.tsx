@@ -1,13 +1,26 @@
 import prisma from "../../lib/prisma";
+import { auth } from "@clerk/nextjs/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const userId = "mock-user-123";
+  const { userId } = await auth();
+  if (!userId) {
+    return (
+      <div className="max-w-6xl mx-auto w-full px-6 py-12 text-zinc-400 font-mono">
+        Unauthorized access. Please sign in.
+      </div>
+    );
+  }
 
-  // Fetch user balance details
-  const user = await prisma.user.findUnique({
+  // Ensure user exists in db
+  const user = await prisma.user.upsert({
     where: { id: userId },
+    update: {},
+    create: {
+      id: userId,
+      walletBalance: 0.0,
+    },
   });
 
   // Fetch the 5 most recent impressions
@@ -53,6 +66,25 @@ export default async function DashboardPage() {
           Track your AI monetization performance in real-time.
         </p>
       </header>
+
+      {/* Bridge UI / Link Info Card */}
+      <div className="glass-card rounded-2xl p-6 border border-primary/20 bg-primary/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-lg">link</span>
+            Link your Chrome Extension
+          </h4>
+          <p className="text-xs text-zinc-400 max-w-2xl leading-relaxed">
+            Link your extension: Copy this ID and paste it into the LatentPay Chrome Extension to route earnings to this wallet.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-lg p-2 max-w-full overflow-hidden">
+          <span className="font-mono text-xs text-primary px-2 truncate select-all">{userId}</span>
+          <span className="text-[10px] text-zinc-500 font-mono uppercase px-2 py-0.5 rounded bg-white/5 border border-white/5 shrink-0 select-none">
+            User ID
+          </span>
+        </div>
+      </div>
 
       {/* Hero Section & Stats Grid Bento Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

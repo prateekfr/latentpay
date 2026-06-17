@@ -35,32 +35,64 @@
     );
     if (dataTestIdBtn) return dataTestIdBtn;
 
-    // 2. Check for any buttons containing aria-label with "Stop"
+    // 2. Check for any buttons containing aria-label with "Stop" or similar
     const stopButtons = Array.from(document.querySelectorAll("button")).filter(
       (btn) => {
         const ariaLabel = (btn.getAttribute("aria-label") || "").toLowerCase();
+        const title = (btn.getAttribute("title") || "").toLowerCase();
         return (
           ariaLabel.includes("stop generating") ||
           ariaLabel.includes("stop streaming") ||
-          ariaLabel === "stop"
+          ariaLabel.includes("stop generation") ||
+          ariaLabel.includes("interrupt") ||
+          ariaLabel.includes("cancel generation") ||
+          ariaLabel === "stop" ||
+          title.includes("stop") ||
+          title.includes("interrupt")
         );
       },
     );
-    return stopButtons[0] || null;
+    if (stopButtons.length > 0) return stopButtons[0];
+
+    // 3. Look inside buttons for stop-like SVGs (square/rect shape)
+    const svgStopButtons = Array.from(document.querySelectorAll("button")).filter(
+      (btn) => {
+        const rect = btn.querySelector("svg rect");
+        if (rect) {
+          const width = parseFloat(rect.getAttribute("width") || "0");
+          const height = parseFloat(rect.getAttribute("height") || "0");
+          if (width > 0 && height > 0) {
+            return true;
+          }
+        }
+        return false;
+      },
+    );
+    if (svgStopButtons.length > 0) return svgStopButtons[0];
+
+    return null;
   }
 
-  // Utility to check if ChatGPT is currently generating an answer
+  // Utility to check if generating an answer across ChatGPT, Claude, or Gemini
   function checkStopButtonExists() {
     if (findStopButton()) return true;
 
-    // Check for any element with the streaming text animation class
-    if (document.querySelector(".result-streaming")) return true;
+    // Check for standard and platform-specific streaming indicators
+    if (
+      document.querySelector(".result-streaming") || // ChatGPT
+      document.querySelector(".is-streaming") || // Claude
+      document.querySelector(".streaming-text") || // Gemini
+      document.querySelector("div.generating")
+    ) {
+      return true;
+    }
 
     return false;
   }
 
   // Find the form/composer wrapper container containing the prompt input box
   function findComposerOrForm() {
+    // 1. Try finding by ID
     const prompt = document.getElementById("prompt");
     if (prompt) {
       const form = prompt.closest("form");
@@ -74,13 +106,36 @@
       return prompt.parentElement;
     }
 
+    // 2. Look for editor elements across platforms (Claude's ProseMirror or Gemini's rich-textarea)
+    const editor =
+      document.querySelector("div.ProseMirror") ||
+      document.querySelector("div.rich-textarea") ||
+      document.querySelector('[contenteditable="true"]') ||
+      document.querySelector("textarea");
+
+    if (editor) {
+      const form = editor.closest("form") || editor.closest("fieldset");
+      if (form) return form;
+
+      const composer =
+        editor.closest('[data-testid="composer-root"]') ||
+        editor.closest(".composer-parent") ||
+        editor.closest(".input-area-container") ||
+        editor.closest(".chat-input-container");
+      if (composer) return composer;
+
+      return editor.parentElement;
+    }
+
+    // 3. Fallback checks
     const formElement = document.querySelector("form");
     if (formElement) return formElement;
 
     const composerRoot =
       document.querySelector('[data-testid="composer-root"]') ||
       document.querySelector(".composer-parent") ||
-      document.querySelector("div.w-full.max-w-3xl");
+      document.querySelector("div.w-full.max-w-3xl") ||
+      document.querySelector(".input-area-container");
     if (composerRoot) return composerRoot;
 
     return null;
@@ -495,41 +550,51 @@
 
     // If duration is at least 5 seconds, submit the real ingestion payload
     if (duration >= 5.0) {
-      const payload = {
-        userId: "mock-user-123",
-        campaignId: "mock-campaign-abc",
-        durationSeconds: parseFloat(duration.toFixed(2)),
-      };
-
-      console.log("[LatentPay] Submitting Impression Payload:", payload);
-
-      fetch("http://localhost:3000/api/v1/impressions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      })
-        .then((response) => {
-          if (!response.ok) {
-            return response.json().then((err) => {
-              throw new Error(err.error || "Failed to submit impression");
-            });
-          }
-          return response.json();
-        })
-        .then((data) => {
-          console.log(
-            `[LatentPay] Payout transaction successful! Wallet balance: ${data.data.walletBalance}`,
-            data,
+      chrome.storage.sync.get(["userId"], (result) => {
+        const storedUserId = result.userId;
+        if (!storedUserId) {
+          console.warn(
+            "[LatentPay WARN] No User ID found in storage. Aborting API fetch request.",
           );
+          return;
+        }
+
+        const payload = {
+          userId: storedUserId,
+          campaignId: "mock-campaign-abc",
+          durationSeconds: parseFloat(duration.toFixed(2)),
+        };
+
+        console.log("[LatentPay] Submitting Impression Payload:", payload);
+
+        fetch("http://localhost:3000/api/v1/impressions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
         })
-        .catch((error) => {
-          console.error(
-            "[LatentPay] Failed to send impression to ingestion server:",
-            error,
-          );
-        });
+          .then((response) => {
+            if (!response.ok) {
+              return response.json().then((err) => {
+                throw new Error(err.error || "Failed to submit impression");
+              });
+            }
+            return response.json();
+          })
+          .then((data) => {
+            console.log(
+              `[LatentPay] Payout transaction successful! Wallet balance: ${data.data.walletBalance}`,
+              data,
+            );
+          })
+          .catch((error) => {
+            console.error(
+              "[LatentPay] Failed to send impression to ingestion server:",
+              error,
+            );
+          });
+      });
     } else {
       console.log(
         `[LatentPay] Impression duration (${duration.toFixed(2)}s) under 5s payout threshold. Not submitted.`,
@@ -538,6 +603,13 @@
 
     if (activeBanner) {
       const bannerToRemove = activeBanner;
+
+      // Disconnect the watchdog observer before intentional removal
+      if (tracerObserver) {
+        tracerObserver.disconnect();
+        tracerObserver = null;
+        console.log("[LatentPay] Watchdog observer disconnected for clean removal.");
+      }
 
       // Animate out nicely before removing from DOM
       bannerToRemove.style.opacity = "0";

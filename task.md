@@ -1,6 +1,9 @@
-- [x] Update globals.css with Stitch color tokens, typography, and glassmorphic utility classes
-- [x] Update apps/web/tailwind.config.ts (if needed, or verify globals.css integration)
-- [x] Completely rewrite apps/web/app/page.tsx to match Stitch Landing Page
-- [x] Refactor apps/web/app/dashboard/page.tsx to match Stitch User Dashboard, preserving 100% data fetching logic
-- [x] Refactor apps/web/app/advertiser/page.tsx to match Stitch Advertiser Dashboard, preserving seeding & warnings
+- [x] Install @clerk/nextjs in apps/web
+- [x] Create apps/web/middleware.ts
+- [x] Wrap root layout.tsx with ClerkProvider and update Header badges
+- [x] Secure User Dashboard page.tsx with Clerk auth and add Bridge UI
+- [x] Secure Advertiser Dashboard page.tsx with Clerk auth
+- [x] Update Chrome Extension manifest.json to register popup
+- [x] Create Chrome Extension popup.html and popup.js
+- [x] Refactor content.js to retrieve userId asynchronously from storage
 - [x] Run verification checks (lint, check-types, build)

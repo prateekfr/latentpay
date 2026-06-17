@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <style>
+      body {
+        width: 320px;
+        font-family: system-ui, -apple-system, sans-serif;
+        background-color: #131315;
+        color: #e5e1e4;
+        margin: 0;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .title {
+        font-size: 16px;
+        font-weight: 800;
+        margin: 0;
+        background: linear-gradient(135deg, #dfb7ff 0%, #6b21a8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .desc {
+        font-size: 11px;
+        color: #cfc2d4;
+        line-height: 1.4;
+        margin: 0;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #988d9e;
+      }
+      input {
+        background-color: #0e0e10;
+        border: 1px solid #4c4452;
+        border-radius: 6px;
+        padding: 8px 12px;
+        color: #e5e1e4;
+        font-size: 12px;
+        font-family: monospace;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      input:focus {
+        border-color: #dfb7ff;
+      }
+      button {
+        background: linear-gradient(135deg, #dfb7ff 0%, #6b21a8 100%);
+        border: none;
+        border-radius: 6px;
+        color: white;
+        padding: 10px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      button:hover {
+        opacity: 0.9;
+      }
+      button:active {
+        transform: scale(0.98);
+      }
+      .status {
+        font-size: 11px;
+        color: #34d399;
+        text-align: center;
+        min-height: 16px;
+        margin-top: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h3 class="title">LatentPay Extension</h3>
+      <p class="desc">
+        Route your passive AI monetization earnings directly to your Web Portal wallet.
+      </p>
+      <div class="form-group">
+        <label for="userIdInput">Enter your LatentPay User ID</label>
+        <input type="text" id="userIdInput" placeholder="user_..." />
+      </div>
+      <button id="saveBtn">Save Settings</button>
+      <div id="statusMsg" class="status"></div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

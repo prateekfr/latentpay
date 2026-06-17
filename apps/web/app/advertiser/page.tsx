@@ -1,9 +1,18 @@
 import prisma from "../../lib/prisma";
+import { auth } from "@clerk/nextjs/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdvertiserPage() {
-  const advertiserId = "mock-advertiser-456";
+  const { userId } = await auth();
+  if (!userId) {
+    return (
+      <div className="max-w-6xl mx-auto w-full px-6 py-12 text-zinc-400 font-mono">
+        Unauthorized access. Please sign in.
+      </div>
+    );
+  }
+  const advertiserId = userId;
 
   // Auto-seed mock advertiser if not exists
   await prisma.advertiser.upsert({
@@ -24,7 +33,7 @@ export default async function AdvertiserPage() {
   if (campaignsCheck.length === 0) {
     await prisma.campaign.create({
       data: {
-        id: "mock-campaign-456",
+        id: `campaign-${advertiserId}`,
         advertiserId: advertiserId,
         adCopy: "Scale your LLM apps dynamically with Acme API",
         targetUrl: "https://acme.com",

@@ -3,6 +3,12 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Link from "next/link";
+import {
+  ClerkProvider,
+  SignInButton,
+  Show,
+  UserButton,
+} from "@clerk/nextjs";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -26,7 +32,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <ClerkProvider>
+      <html lang="en" className="dark">
       <head>
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
@@ -73,15 +80,21 @@ export default function RootLayout({
               </nav>
             </div>
 
-            {/* User Badge */}
+            {/* User Authentication / Badge */}
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1 text-xs font-semibold text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.05)]">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-                </span>
-                mock-user-123
-              </div>
+              <Show when="signed-in">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400 font-mono hidden sm:inline">Wallet Active</span>
+                  <UserButton />
+                </div>
+              </Show>
+              <Show when="signed-out">
+                <SignInButton mode="modal">
+                  <button className="bg-gradient-to-r from-[#6b21a8] to-[#4f46e5] text-white px-4 py-2 rounded-lg font-semibold text-xs transition-all border border-white/10 active:scale-95 duration-150 cursor-pointer">
+                    Sign In
+                  </button>
+                </SignInButton>
+              </Show>
             </div>
           </div>
         </header>
@@ -92,5 +105,6 @@ export default function RootLayout({
         </main>
       </body>
     </html>
+    </ClerkProvider>
   );
 }

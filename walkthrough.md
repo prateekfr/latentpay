@@ -233,3 +233,60 @@ We completed a comprehensive frontend visual overhaul of the Next.js landing and
    ```
    Successfully built the Next.js project with zero compiler warnings or errors.
 
+## Spacing, Alignment, and Configuration Fixes
+
+We successfully resolved several critical CSS layout and configuration bugs identified across the web workspace:
+
+### 1. Disabled Developer Indicator
+- Modified [next.config.js](file:///d:/Projects/latentpay/apps/web/next.config.js) to set `devIndicators: false`. This hides the floating 'N' badge from the bottom-left corner of the screen during development.
+
+### 2. Resolved Landing Page Overlaps & Spacing
+- Wrapped all contents of the landing page ([page.tsx](file:///d:/Projects/latentpay/apps/web/app/page.tsx)) inside a `<main className="max-w-7xl mx-auto px-6 overflow-hidden">` container to prevent any content from bleeding off the edges of the viewport.
+- Increased the gap between the primary action buttons ('Get Chrome Extension' and 'Launch Ad Campaign') in the hero section to `gap-6` to avoid visual overlaps on medium/small viewports.
+- Added a `mt-16` spacing margin to the Bento Grid feature section to ensure a clean vertical separator from the scrolling marquee stats ticker.
+
+### 3. Standardized Dashboard Page Margins
+- Reconfigured the outer wrappers of the User Dashboard ([dashboard/page.tsx](file:///d:/Projects/latentpay/apps/web/app/dashboard/page.tsx)) and Advertiser Dashboard ([advertiser/page.tsx](file:///d:/Projects/latentpay/apps/web/app/advertiser/page.tsx)) using a standardized responsive container: `<div className="max-w-6xl mx-auto w-full px-6 py-12 flex flex-col gap-8">`. This resolves horizontal stretching issues on widescreen viewports.
+
+### 4. Advertiser Dashboard Grid Alignment
+- Separated the 'Available Budget' metrics bento block and the 'Active Deployments' campaign ledger table inside [advertiser/page.tsx](file:///d:/Projects/latentpay/apps/web/app/advertiser/page.tsx) with a distinct `mb-8` margin to prevent structural overlaps.
+- Applied `items-start` to the main multi-column grid layout container (`lg:grid-cols-12`) so the left-hand campaigns ledger and right-hand campaign initialization form align cleanly at their tops.
+
+All lints, type checks, and static production builds compile successfully.
+
+# Walkthrough - Phase 7: Security & Authentication (Clerk Integration)
+
+We successfully integrated **Clerk** as the authentication provider for the Next.js web application and established a secure user matching bridge with the Chrome Extension.
+
+## Changes Made
+
+### 1. Next.js Web Authentication & Protection
+- **Installed Clerk**: Added `@clerk/nextjs` (version `7.5.4`) to the dependencies of `apps/web`.
+- **Clerk Middleware**: Created [middleware.ts](file:///d:/Projects/latentpay/apps/web/middleware.ts) protecting the `/dashboard` and `/advertiser` pages, while keeping public pathways (like home `/` and the impression ingestion route `/api/v1/impressions`) completely accessible.
+- **Root Layout Wrapper**: Wrapped the root layout inside [layout.tsx](file:///d:/Projects/latentpay/apps/web/app/layout.tsx) with `<ClerkProvider>`. Replaced the hardcoded user badge in the header with Clerk's `<UserButton />` and `<SignInButton />` components using Clerk v7 unified `<Show>` control blocks.
+
+### 2. User & Advertiser Dashboard Security
+- **Secure Data Fetching**: Updated both [dashboard/page.tsx](file:///d:/Projects/latentpay/apps/web/app/dashboard/page.tsx) and [advertiser/page.tsx](file:///d:/Projects/latentpay/apps/web/app/advertiser/page.tsx) to fetch the logged-in user's `userId` using `auth()` from `@clerk/nextjs/server`. 
+- **DB User Upserting**: Implemented auto-upsert logic during page load to guarantee that authenticated users and their corresponding advertiser/mock-campaign accounts exist inside the SQLite database using their unique Clerk `userId`.
+- **Bridge UI Component**: Embedded an info card on the User Dashboard displaying their Clerk `userId` with the explicit instruction: *'Link your extension: Copy this ID and paste it into the LatentPay Chrome Extension to route earnings to this wallet.'*
+
+### 3. Chrome Extension Bridge
+- **Popup Interface**: Created [popup.html](file:///d:/Projects/latentpay/apps/extension/popup.html) and [popup.js](file:///d:/Projects/latentpay/apps/extension/popup.js) providing a clean UI where users can paste their Clerk `userId` and save it locally using `chrome.storage.sync`.
+- **Manifest Action Registration**: Updated [manifest.json](file:///d:/Projects/latentpay/apps/extension/manifest.json) to register the default action popup.
+- **Asynchronous Storage Content Script**: Refactored the `stopGeneration()` logic inside [content.js](file:///d:/Projects/latentpay/apps/extension/content.js) to read the `userId` from `chrome.storage.sync` asynchronously. If no user ID is found, it aborts the impression payload submission and prints a warning to the console.
+
+---
+
+## Verification & Testing
+
+1. **Workspace Diagnostics**: Ran standard type safety checks and linter suites:
+   ```bash
+   npm run lint
+   npm run check-types
+   ```
+   All packages format and compile cleanly.
+2. **Next.js Production Build**: Compiled Next.js using production parameters:
+   ```bash
+   npm run build
+   ```
+   Successfully built and optimized the packages with Turbopack.
