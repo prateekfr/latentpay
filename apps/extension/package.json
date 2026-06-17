@@ -1,0 +1,9 @@
+{
+  "name": "extension",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo \"No dev build step needed for raw extension\"",
+    "build": "echo \"No build step needed for raw extension\""
+  }
+}

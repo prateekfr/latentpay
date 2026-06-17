@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            String       @id @default(cuid())
+  walletBalance Float        @default(0.0)
+  createdAt     DateTime     @default(now())
+  impressions   Impression[]
+}
+
+model Advertiser {
+  id          String     @id @default(cuid())
+  companyName String
+  balance     Float      @default(0.0)
+  createdAt   DateTime   @default(now())
+  campaigns   Campaign[]
+}
+
+model Campaign {
+  id           String       @id @default(cuid())
+  advertiserId String
+  advertiser   Advertiser   @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  adCopy       String
+  targetUrl    String
+  isActive     Boolean      @default(true)
+  impressions  Impression[]
+}
+
+model Impression {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId      String
+  campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  durationSeconds Float
+  payoutAmount    Float
+  createdAt       DateTime @default(now())
+}

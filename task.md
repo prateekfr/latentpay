@@ -1,0 +1,3 @@
+- [x] Create/update Next.js layout `apps/web/app/layout.tsx` to add global navigation header
+- [x] Create `apps/web/app/dashboard/page.tsx` with Prisma data fetching and clean Tailwind UI
+- [x] Run formatting, check types, and lint to verify compilation and static safety

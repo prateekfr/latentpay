@@ -1,0 +1,16 @@
+/* CSS injected into ChatGPT page context to set up the container element */
+latentpay-banner {
+  display: block;
+  width: 100%;
+  max-width: 768px; /* Matches ChatGPT's text column width perfectly */
+  margin-bottom: 120px; /* Positions it safely right above the input box */
+  padding: 0 16px; /* Prevents edge-clipping on smaller viewports */
+  pointer-events: auto; /* Restores interactivity to the banner button */
+  box-sizing: border-box;
+  clear: both;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
