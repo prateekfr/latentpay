@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-page-custom-font */
+/* eslint-disable @next/next/google-font-display */
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Link from "next/link";
@@ -25,6 +27,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+          rel="stylesheet"
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-[#07070d] text-gray-100 antialiased`}
       >
@@ -56,6 +64,12 @@ export default function RootLayout({
                 >
                   Dashboard
                 </Link>
+                <Link
+                  href="/advertiser"
+                  className="hover:text-gray-100 transition-colors"
+                >
+                  Advertiser
+                </Link>
               </nav>
             </div>
 
@@ -73,7 +87,7 @@ export default function RootLayout({
         </header>
 
         {/* Main Content Area */}
-        <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        <main className="w-full">
           {children}
         </main>
       </body>

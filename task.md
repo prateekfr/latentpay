@@ -1,3 +1,6 @@
-- [x] Create/update Next.js layout `apps/web/app/layout.tsx` to add global navigation header
-- [x] Create `apps/web/app/dashboard/page.tsx` with Prisma data fetching and clean Tailwind UI
-- [x] Run formatting, check types, and lint to verify compilation and static safety
+- [x] Update globals.css with Stitch color tokens, typography, and glassmorphic utility classes
+- [x] Update apps/web/tailwind.config.ts (if needed, or verify globals.css integration)
+- [x] Completely rewrite apps/web/app/page.tsx to match Stitch Landing Page
+- [x] Refactor apps/web/app/dashboard/page.tsx to match Stitch User Dashboard, preserving 100% data fetching logic
+- [x] Refactor apps/web/app/advertiser/page.tsx to match Stitch Advertiser Dashboard, preserving seeding & warnings
+- [x] Run verification checks (lint, check-types, build)

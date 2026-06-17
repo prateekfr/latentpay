@@ -1,91 +1,40 @@
-# LatentPay - Product Requirement Document & Technical Specification
+# LatentPay Master Implementation Plan: Phases 5 - 7
 
-## 1. Executive Summary & Inspiration
-* **Product Name:** LatentPay
-* **Inspiration:** Inspired by Kickbacks.ai (which injects ads during IDE code generation latency). LatentPay shifts this paradigm to the consumer browser ecosystem, capturing and monetizing the "dead time" (5-30 seconds of generation latency) on mainstream consumer LLM platforms.
-* **Target Platforms (MVP):** ChatGPT (chatgpt.com), Claude (claude.ai), Gemini (gemini.google.com).
-* **Core Value Proposition:** Users opt-in to view native, non-intrusive sponsor ads while an LLM is generating an answer, earning passive micro-rewards per valid completion.
+## Overview
+With the core generation tracking, API ingestion, and User Dashboard completed (Phases 1-4), LatentPay possesses a functional supply-side loop. The remaining phases aim to close the marketplace loop (Demand), secure the infrastructure (Auth), and expand the addressable market (Scale).
 
 ---
 
-## 2. Strategic Product Decisions (The MVP Scope)
-To maximize iteration velocity and eliminate infrastructure bottlenecking/fraud vectors at launch, the following constraints are locked:
+## Phase 5: The Advertiser Dashboard (The Demand Side)
+**Goal:** Build the revenue engine. Advertisers need a portal to view budgets, monitor active campaigns, and upload creatives.
 
-1. **Ad Format (Option A - Native Infill):** Ads must NOT be intrusive popups. They must render as sleek, native-looking banner elements injected directly into the active chat response stream, right below the generating text bubble.
-2. **Payout Trigger (Option B - Event-Based):**
-   * No high-frequency 1-second websocket heartbeats (prevents bot-farm scaling and server overhead).
-   * **Logic:** The extension records the exact timestamp when generation begins and when it ends. If total `duration >= 5 seconds`, it counts as a single valid impression and fires **one single payload** to the backend upon completion.
-3. **Initial Inventory Strategy:** Initial ad payloads are hardcoded to promote LatentPay itself. The self-serve advertiser portal will populate inventory post-MVP.
+* **Database Seeding:** Implement auto-seeding logic for an advertiser (`id: 'mock-advertiser-456'`) with a starting budget (e.g., $500.00) and at least one active `Campaign` to ensure zero-state UI testing.
+* **Web Portal (`/advertiser`):** Create a React Server Component dashboard.
+* **Metrics & UI:**
+    * Display "Remaining Budget" using the global Prisma client.
+    * Render an "Active Campaigns" data table.
+    * Build a "Create New Campaign" placeholder UI.
+* **Creative Standards:** Enforce the IAB Leaderboard standard for ad creative uploads: **728x90 pixels (8:1 aspect ratio)**.
+* **Navigation:** Update the shared `layout.tsx` header to include seamless routing to the `/advertiser` dashboard.
 
 ---
 
-## 3. Repository Architecture (Turborepo Monorepo)
-The workspace utilizes an npm-workspaces Monorepo managed by Turborepo to enable strict TypeScript type-sharing between the client extension and the backend API.
+## Phase 6: Security & Authentication (The Shield)
+**Goal:** Replace mock hardcoded IDs with secure, persistent user authentication.
 
-```text
-latentpay/
-├── apps/
-│   ├── web/          # Next.js (Landing, Dashboards, Wallets, and Ingestion API)
-│   └── extension/    # Chrome Extension (Manifest V3, Content Scripts, Popup)
-├── packages/
-│   ├── ts-config/    # Shared TypeScript configurations
-│   └── types/        # Shared data contracts (Zod validation schemas)
-├── package.json      # Workspace root configuration
-└── PLAN.md           # This master directive file
-```
+* **Auth Integration:** Install and configure an authentication provider (e.g., Clerk or Supabase Auth) within the Next.js `apps/web` workspace.
+* **Database Migration:** Update the Prisma schema to map internal `User` and `Advertiser` records to the Auth provider's secure UUIDs.
+* **Route Protection:** Implement middleware to protect the `/dashboard` and `/advertiser` routes, ensuring users can only view their own ledger data.
+* **Extension Handshake:** Update the Chrome Extension to retrieve and pass a secure Auth token in the headers of the `fetch` POST request to `/api/v1/impressions`, preventing spoofed ledger entries.
+
 ---
 
-## 4. Unified Tech Stack
-* **Language:** TypeScript (Strict Mode) across the entire stack.
-* **Monorepo Orchestrator:** Turborepo + npm workspaces.
-* **Web App & Ingestion API:** Next.js (App Router). API routes will double as the ingestion endpoint for extension payloads.
-* **Styling:** Tailwind CSS.
-* **Database:** PostgreSQL (Hosted via Supabase or Neon) handled via an ORM (Prisma or Drizzle).
-* **Authentication:** Clerk or Supabase Auth.
-* **Payment rails:** Stripe (for advertiser top-ups) and Stripe Connect (for user reward payouts).
+## Phase 7: Multi-LLM Expansion (The Scale)
+**Goal:** Expand the extension's reach beyond ChatGPT to capture latency on other major LLM platforms.
 
-
-## 5. Technical Flow & Logic
-
-### Flow A: Client-Side State Detection (Content Script)
-1. Content script initializes on target domain (e.g., chatgpt.com).
-2. A lightweight DOM polling interval or MutationObserver monitors state-change selectors.
-3. **Generation Start Trigger:** Detection of the native "Stop generating" square button action.
-    * Action: Log startTime, query backend for a targeted ad creative, inject a Shadow DOM container containing the banner right inside the latest .agent-turn chat bubble.
-4. **Generation End Trigger:** Disappearance of the "Stop generating" element.
-    * Action: Log endTime, calculate duration = (endTime - startTime) / 1000.
-    * Clear the injected ad element from the DOM.
-    * If duration >= 5, package the payload and fire an HTTP POST to /api/v1/impressions.
-
-### Flow B: Backend Event Ingestion & Ledger
-1. Next.js API route receives the impression payload.
-2. Server validates the payload using a shared Zod schema (verifying user session, session duration sanity, and token signatures).
-3. Database transactional write:
-    * Dedubbing check (preventing replay attacks).
-    * Append a line item to the accurate transactional balance Ledger table.
-    * Increment user's aggregate wallet balance.
-
-
-## 6. Phased Implementation Roadmap
-**Phase 1:** Chrome Extension DOM Parsing & Mock Overlay
-* Goal: Flawless detection of active generation states on ChatGPT without breaking native UI.
-* Set up Manifest V3 configuration.
-* Write content scripts targeting ChatGPT's specific CSS container selectors.
-* Ensure mock HTML banner injects and ejects smoothly on completion.
-
-**Phase 2:** Database Layer & Ingestion API Setup
-* Goal: Ready the data layer to record transactions.
-* Initialize Postgres schema using an ORM.
-* Create User, Advertiser, Campaign, and Ledger tables.
-* Write the Next.js API ingestion route with strict server-side validation.
-
-**Phase 3:** End-to-End Client-to-Server Integration
-* Goal: Connect the extension to the live local database.
-* Replace extension logs with actual fetch requests hitting the Next.js API.
-* Implement basic user token validation so the extension knows who is earning the credit.
-
-**Phase 4:** Web Portal, Authentication & Wallets
-* Goal: Allow users to track earnings and advertisers to see analytics.
-* Set up user login and onboarding.
-* Build out the user balance tracking chart view. 
-* Build the skeletal structure for the Advertiser Campaign creation UI.
+* **Manifest Updates:** Update `manifest.json` host permissions to include `https://claude.ai/*` and `https://gemini.google.com/*`.
+* **DOM Strategy Modularization:** Refactor `content.js` to detect the active hostname and apply platform-specific DOM parsing logic.
+    * *ChatGPT:* Target `conversation-turn` and `.result-streaming`.
+    * *Claude:* Map Anthropic's specific streaming text containers.
+    * *Gemini:* Map Google's specific generation state UI elements.
+* **Unified UI Rendering:** Ensure the fixed `latentpay-root` glass pane overlay correctly frames the input boxes across all three distinct responsive layouts.
