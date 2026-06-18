@@ -8,6 +8,32 @@
   let tickerInterval = null;
   let hasMetThreshold = false;
 
+  // Claude text change tracking state
+  let lastClaudeText = "";
+  let lastClaudeTextTime = 0;
+  let claudeStreamingActive = false;
+
+  // Helper to retrieve text of the last assistant message
+  function getLastAssistantMessageText() {
+    const selector =
+      '.font-claude-message, [data-message-author-role="assistant"], .chat-turn, .message-content';
+    const elements = Array.from(document.querySelectorAll(selector)).filter(
+      (el) => {
+        // Exclude elements that are inside the input composer or contenteditable to avoid matching user typing
+        return (
+          !el.closest("form") &&
+          !el.closest("fieldset") &&
+          !el.closest('[contenteditable="true"]')
+        );
+      },
+    );
+
+    if (elements.length > 0) {
+      return elements[elements.length - 1].innerText || "";
+    }
+    return "";
+  }
+
   // Initialize the Isolated Glass Pane Root at document.documentElement
   let root = document.getElementById("latentpay-root");
   if (!root) {
@@ -27,15 +53,88 @@
     console.log("[LatentPay] Isolated Glass Pane root initialized.");
   }
 
+  // Helper to detect current LLM platform
+  function getPlatform() {
+    const hostname = window.location.hostname;
+    if (
+      hostname.includes("chatgpt.com") ||
+      hostname.includes("chat.openai.com")
+    ) {
+      return "chatgpt";
+    }
+    if (hostname.includes("claude.ai")) {
+      return "claude";
+    }
+    if (hostname.includes("gemini.google.com")) {
+      return "gemini";
+    }
+    return "unknown";
+  }
+
   // Helper to locate the active Stop button
   function findStopButton() {
-    // 1. Check for the standard data-testid stop button
+    const platform = getPlatform();
+
+    if (platform === "chatgpt") {
+      return document.querySelector('button[data-testid="stop-button"]');
+    }
+
+    if (platform === "claude") {
+      const stopBtn = document.querySelector(
+        'button[aria-label*="stop" i], button[aria-label*="cancel" i]',
+      );
+      if (stopBtn) {
+        const isDisabled =
+          stopBtn.disabled || stopBtn.getAttribute("aria-disabled") === "true";
+        if (!isDisabled) return stopBtn;
+      }
+
+      // Check test-ids or class lists for stops/cancels as a fallback
+      return (
+        Array.from(document.querySelectorAll("button")).find((btn) => {
+          const ariaLabel = (
+            btn.getAttribute("aria-label") || ""
+          ).toLowerCase();
+          const testId = (btn.getAttribute("data-testid") || "").toLowerCase();
+          const isDisabled =
+            btn.disabled || btn.getAttribute("aria-disabled") === "true";
+
+          const isStopLabel =
+            ariaLabel.includes("stop") ||
+            ariaLabel.includes("cancel") ||
+            testId.includes("stop");
+
+          return isStopLabel && !isDisabled;
+        }) || null
+      );
+    }
+
+    if (platform === "gemini") {
+      return (
+        Array.from(document.querySelectorAll("button")).find((btn) => {
+          const ariaLabel = (
+            btn.getAttribute("aria-label") || ""
+          ).toLowerCase();
+          const tooltip = (btn.getAttribute("tooltip") || "").toLowerCase();
+          const title = (btn.getAttribute("title") || "").toLowerCase();
+          return (
+            ariaLabel.includes("stop") ||
+            ariaLabel.includes("cancel") ||
+            tooltip.includes("stop") ||
+            title.includes("stop") ||
+            btn.querySelector("mat-progress-bar") ||
+            btn.querySelector("svg rect")
+          );
+        }) || null
+      );
+    }
+
+    // Generic fallback for unknown platforms
     const dataTestIdBtn = document.querySelector(
       'button[data-testid="stop-button"]',
     );
     if (dataTestIdBtn) return dataTestIdBtn;
 
-    // 2. Check for any buttons containing aria-label with "Stop" or similar
     const stopButtons = Array.from(document.querySelectorAll("button")).filter(
       (btn) => {
         const ariaLabel = (btn.getAttribute("aria-label") || "").toLowerCase();
@@ -54,20 +153,19 @@
     );
     if (stopButtons.length > 0) return stopButtons[0];
 
-    // 3. Look inside buttons for stop-like SVGs (square/rect shape)
-    const svgStopButtons = Array.from(document.querySelectorAll("button")).filter(
-      (btn) => {
-        const rect = btn.querySelector("svg rect");
-        if (rect) {
-          const width = parseFloat(rect.getAttribute("width") || "0");
-          const height = parseFloat(rect.getAttribute("height") || "0");
-          if (width > 0 && height > 0) {
-            return true;
-          }
+    const svgStopButtons = Array.from(
+      document.querySelectorAll("button"),
+    ).filter((btn) => {
+      const rect = btn.querySelector("svg rect");
+      if (rect) {
+        const width = parseFloat(rect.getAttribute("width") || "0");
+        const height = parseFloat(rect.getAttribute("height") || "0");
+        if (width > 0 && height > 0) {
+          return true;
         }
-        return false;
-      },
-    );
+      }
+      return false;
+    });
     if (svgStopButtons.length > 0) return svgStopButtons[0];
 
     return null;
@@ -75,14 +173,83 @@
 
   // Utility to check if generating an answer across ChatGPT, Claude, or Gemini
   function checkStopButtonExists() {
+    const platform = getPlatform();
+
+    if (platform === "chatgpt") {
+      if (document.querySelector('button[data-testid="stop-button"]'))
+        return true;
+      if (document.querySelector(".result-streaming")) return true;
+      return false;
+    }
+
+    if (platform === "claude") {
+      const stopBtn = findStopButton();
+      const hasStop = !!stopBtn;
+      const hasStreamingClass =
+        !!document.querySelector(".is-streaming") ||
+        !!document.querySelector(".streaming") ||
+        !!document.querySelector('[data-testid="streaming-message"]');
+
+      const fieldset = document.querySelector("fieldset");
+      const isInputLocked = !!(fieldset && fieldset.hasAttribute("disabled"));
+
+      if (hasStop || hasStreamingClass || isInputLocked) {
+        const currentText = getLastAssistantMessageText();
+        if (currentText) {
+          lastClaudeText = currentText;
+          lastClaudeTextTime = Date.now();
+        }
+        return true;
+      }
+
+      const now = Date.now();
+      const currentText = getLastAssistantMessageText();
+
+      if (currentText && currentText !== lastClaudeText) {
+        lastClaudeText = currentText;
+        lastClaudeTextTime = now;
+        claudeStreamingActive = true;
+      } else {
+        claudeStreamingActive = false;
+      }
+      return claudeStreamingActive;
+    }
+
+    if (platform === "gemini") {
+      if (document.querySelector("mat-progress-bar")) return true;
+      if (document.querySelector(".generating")) return true;
+      if (document.querySelector(".streaming-text")) return true;
+      if (
+        document.querySelector("div[role='progressbar']") ||
+        document.querySelector(".progress-indicator")
+      ) {
+        return true;
+      }
+
+      const stopBtn = Array.from(document.querySelectorAll("button")).find(
+        (btn) => {
+          const ariaLabel = (
+            btn.getAttribute("aria-label") || ""
+          ).toLowerCase();
+          return ariaLabel.includes("stop") || ariaLabel.includes("cancel");
+        },
+      );
+      if (stopBtn && stopBtn.offsetWidth > 0 && stopBtn.offsetHeight > 0) {
+        return true;
+      }
+
+      return false;
+    }
+
+    // Fallback checks
     if (findStopButton()) return true;
 
-    // Check for standard and platform-specific streaming indicators
     if (
-      document.querySelector(".result-streaming") || // ChatGPT
-      document.querySelector(".is-streaming") || // Claude
-      document.querySelector(".streaming-text") || // Gemini
-      document.querySelector("div.generating")
+      document.querySelector(".result-streaming") ||
+      document.querySelector(".is-streaming") ||
+      document.querySelector(".streaming-text") ||
+      document.querySelector("div.generating") ||
+      document.querySelector("mat-progress-bar")
     ) {
       return true;
     }
@@ -92,7 +259,62 @@
 
   // Find the form/composer wrapper container containing the prompt input box
   function findComposerOrForm() {
-    // 1. Try finding by ID
+    const platform = getPlatform();
+
+    if (platform === "chatgpt") {
+      const prompt = document.getElementById("prompt");
+      if (prompt) {
+        const form = prompt.closest("form");
+        if (form) return form;
+
+        const composer =
+          prompt.closest('[data-testid="composer-root"]') ||
+          prompt.closest(".composer-parent");
+        if (composer) return composer;
+
+        return prompt.parentElement;
+      }
+
+      const formElement = document.querySelector("form");
+      if (formElement) return formElement;
+
+      const composerRoot = document.querySelector(
+        '[data-testid="composer-root"]',
+      );
+      if (composerRoot) return composerRoot;
+    }
+
+    if (platform === "claude") {
+      const editor =
+        document.querySelector("div.ProseMirror") ||
+        document.querySelector('[contenteditable="true"]');
+      if (editor) {
+        const fieldset = editor.closest("fieldset");
+        if (fieldset) return fieldset;
+
+        const container =
+          editor.closest(".flex.flex-col") || editor.parentElement;
+        return container;
+      }
+    }
+
+    if (platform === "gemini") {
+      const editor =
+        document.querySelector("div.rich-textarea") ||
+        document.querySelector("textarea") ||
+        document.querySelector('[contenteditable="true"]');
+      if (editor) {
+        const container =
+          editor.closest(".input-area-container") ||
+          editor.closest(".chat-input-container") ||
+          editor.closest(".input-area") ||
+          editor.closest("form") ||
+          editor.parentElement;
+        return container;
+      }
+    }
+
+    // Generic fallback checks across all platforms
     const prompt = document.getElementById("prompt");
     if (prompt) {
       const form = prompt.closest("form");
@@ -106,7 +328,6 @@
       return prompt.parentElement;
     }
 
-    // 2. Look for editor elements across platforms (Claude's ProseMirror or Gemini's rich-textarea)
     const editor =
       document.querySelector("div.ProseMirror") ||
       document.querySelector("div.rich-textarea") ||
@@ -121,13 +342,13 @@
         editor.closest('[data-testid="composer-root"]') ||
         editor.closest(".composer-parent") ||
         editor.closest(".input-area-container") ||
-        editor.closest(".chat-input-container");
+        editor.closest(".chat-input-container") ||
+        editor.closest(".input-area");
       if (composer) return composer;
 
       return editor.parentElement;
     }
 
-    // 3. Fallback checks
     const formElement = document.querySelector("form");
     if (formElement) return formElement;
 
@@ -135,7 +356,8 @@
       document.querySelector('[data-testid="composer-root"]') ||
       document.querySelector(".composer-parent") ||
       document.querySelector("div.w-full.max-w-3xl") ||
-      document.querySelector(".input-area-container");
+      document.querySelector(".input-area-container") ||
+      document.querySelector(".chat-input-container");
     if (composerRoot) return composerRoot;
 
     return null;
@@ -608,7 +830,9 @@
       if (tracerObserver) {
         tracerObserver.disconnect();
         tracerObserver = null;
-        console.log("[LatentPay] Watchdog observer disconnected for clean removal.");
+        console.log(
+          "[LatentPay] Watchdog observer disconnected for clean removal.",
+        );
       }
 
       // Animate out nicely before removing from DOM
@@ -635,6 +859,19 @@
   // Robust monitoring loop checking state transitions
   function monitorState() {
     const isGeneratingNow = checkStopButtonExists();
+
+    // Verbose Claude Logging
+    if (getPlatform() === "claude") {
+      const stopBtn = findStopButton();
+      const fieldset = document.querySelector("fieldset");
+      const isInputLocked = !!(fieldset && fieldset.hasAttribute("disabled"));
+      console.log(
+        "[LatentPay Debug] Claude State - StopBtn found:",
+        !!stopBtn,
+        "Input Locked:",
+        !!isInputLocked,
+      );
+    }
 
     if (isGeneratingNow && !isGenerating) {
       // Initialize observer tracking when active generation starts
