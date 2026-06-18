@@ -449,7 +449,7 @@
         max-width: 768px; /* Matches ChatGPT's text column width perfectly */
         margin-bottom: 120px; /* Positions it safely right above the input box */
         padding: 0 16px; /* Prevents edge-clipping on smaller viewports */
-        pointer-events: auto; /* Restores interactivity to the banner button */
+        pointer-events: none; /* Allows clicks to pass through wrapper container */
         box-sizing: border-box;
         opacity: 0;
         transform: translateY(8px);
@@ -727,6 +727,15 @@
 
     console.log("[LatentPay] Active generation start detected.");
 
+    // Idempotency cleanup: remove any existing banner to avoid duplicates
+    const existing = document.querySelector("latentpay-banner");
+    if (existing) {
+      existing.remove();
+      console.log(
+        "[LatentPay] Cleaned up existing duplicate banner before injection.",
+      );
+    }
+
     // Look for target and inject banner
     const target = findLatestAssistantTurnContent();
     if (target) {
@@ -854,6 +863,12 @@
       activeBanner = null;
       activeBannerTarget = null;
     }
+
+    // Reset all tracking and streaming variables cleanly
+    hasMetThreshold = false;
+    lastClaudeText = "";
+    lastClaudeTextTime = 0;
+    claudeStreamingActive = false;
   }
 
   // Robust monitoring loop checking state transitions
@@ -878,6 +893,9 @@
       setupTracerObserver();
       startGeneration();
     } else if (!isGeneratingNow && isGenerating) {
+      console.log(
+        "[LatentPay] Generation stopped, aborted manually, or completed.",
+      );
       stopGeneration();
     } else if (isGenerating) {
       // Check if the banner exists anywhere in the active DOM tree
