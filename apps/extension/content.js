@@ -769,11 +769,21 @@
 
   // Stop generation, handle duration validation, and trigger clean removal animation
   function stopGeneration() {
+    // Immediate Click-Through Liberation: Disable pointer-events and clear inner HTML on our glass pane root instantly
+    const root = document.getElementById("latentpay-root");
+    if (root) {
+      root.style.pointerEvents = "none";
+      root.innerHTML = "";
+    }
+
     isGenerating = false;
-    clearInterval(tickerInterval);
+    if (tickerInterval) {
+      clearInterval(tickerInterval);
+      tickerInterval = null;
+    }
 
     const endTime = Date.now();
-    const duration = (endTime - startTime) / 1000;
+    const duration = startTime > 0 ? (endTime - startTime) / 1000 : 0;
 
     console.log(
       `[LatentPay] Generation completed. Duration: ${duration.toFixed(2)}s`,
@@ -832,37 +842,25 @@
       );
     }
 
-    if (activeBanner) {
-      const bannerToRemove = activeBanner;
-
-      // Disconnect the watchdog observer before intentional removal
-      if (tracerObserver) {
-        tracerObserver.disconnect();
-        tracerObserver = null;
-        console.log(
-          "[LatentPay] Watchdog observer disconnected for clean removal.",
-        );
-      }
-
-      // Animate out nicely before removing from DOM
-      bannerToRemove.style.opacity = "0";
-      bannerToRemove.style.transform = "translateY(-4px)";
-
-      setTimeout(() => {
-        if (bannerToRemove && bannerToRemove.parentNode) {
-          bannerToRemove.parentNode.removeChild(bannerToRemove);
-        }
-        // Reset root to full-screen after banner is fully removed
-        const paneRoot = document.getElementById("latentpay-root");
-        if (paneRoot) {
-          paneRoot.style.left = "0";
-          paneRoot.style.width = "100vw";
-        }
-      }, 300);
-
-      activeBanner = null;
-      activeBannerTarget = null;
+    // Disconnect the watchdog observer before intentional removal
+    if (tracerObserver) {
+      tracerObserver.disconnect();
+      tracerObserver = null;
+      console.log(
+        "[LatentPay] Watchdog observer disconnected for clean removal.",
+      );
     }
+
+    // Reset root to full-screen
+    const paneRoot = document.getElementById("latentpay-root");
+    if (paneRoot) {
+      paneRoot.style.left = "0";
+      paneRoot.style.width = "100vw";
+    }
+
+    activeBanner = null;
+    activeBannerTarget = null;
+    startTime = 0;
 
     // Reset all tracking and streaming variables cleanly
     hasMetThreshold = false;
@@ -873,6 +871,29 @@
 
   // Robust monitoring loop checking state transitions
   function monitorState() {
+    // Bulletproof Gemini Abort Detection:
+    // If the current platform is gemini and isGenerating is true,
+    // verify if native progress bar and stop button have vanished.
+    if (getPlatform() === "gemini" && isGenerating) {
+      const hasProgressBar = !!document.querySelector(
+        "mat-progress-bar, div[role='progressbar'], .progress-indicator, .generating, .streaming-text",
+      );
+      const stopBtn = findStopButton();
+      const isStopBtnVisible = !!(
+        stopBtn &&
+        stopBtn.offsetWidth > 0 &&
+        stopBtn.offsetHeight > 0
+      );
+
+      if (!hasProgressBar && !isStopBtnVisible) {
+        console.log(
+          "[LatentPay Debug] Gemini generation aborted or finished (Progress bar and Stop button vanished). Triggering immediate stop.",
+        );
+        stopGeneration();
+        return;
+      }
+    }
+
     const isGeneratingNow = checkStopButtonExists();
 
     // Verbose Claude Logging
