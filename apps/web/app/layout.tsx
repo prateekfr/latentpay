@@ -1,110 +1,57 @@
 /* eslint-disable @next/next/no-page-custom-font */
-/* eslint-disable @next/next/google-font-display */
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import Link from "next/link";
-import {
-  ClerkProvider,
-  SignInButton,
-  Show,
-  UserButton,
-} from "@clerk/nextjs";
+import { Space_Grotesk, Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
+import { FloatingOrbs } from "../components/ui/FloatingOrbs";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-});
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
   variable: "--font-geist-mono",
 });
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  weight: ["400", "500", "600"],
+  display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space-grotesk",
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "LatentPay - Earn rewards while LLMs think",
+  title: "LatentPay — Monetize the Wait",
   description:
-    "Opt-in to view native, non-intrusive sponsor ads during LLM latency and earn passive micro-rewards per query.",
+    "Turn AI latency into passive income. LatentPay shows native sponsor ads during LLM processing time and pays you micro-rewards per query — automatically.",
+  keywords: ["AI monetization", "passive income", "LLM ads", "latent pay", "earn while AI thinks"],
+  openGraph: {
+    title: "LatentPay — Monetize the Wait",
+    description: "Turn AI latency into passive income.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <ClerkProvider>
-      <html lang="en" className="dark">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
-          rel="stylesheet"
-        />
-      </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-[#07070d] text-gray-100 antialiased`}
-      >
-        {/* Navigation Header */}
-        <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#07070d]/80 backdrop-blur-md">
-          <div className="mx-auto flex max-w-7xl h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-8">
-              {/* Brand Logo */}
-              <Link href="/" className="flex items-center gap-2 group">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 font-extrabold text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform duration-200">
-                  L
-                </div>
-                <span className="bg-gradient-to-r from-indigo-200 via-purple-200 to-pink-200 bg-clip-text text-lg font-bold tracking-tight text-transparent group-hover:opacity-95 transition-opacity">
-                  LatentPay
-                </span>
-              </Link>
-
-              {/* Navigation Links */}
-              <nav className="flex items-center gap-6 text-sm font-medium text-gray-400">
-                <Link
-                  href="/"
-                  className="hover:text-gray-100 transition-colors"
-                >
-                  Home
-                </Link>
-                <Link
-                  href="/dashboard"
-                  className="hover:text-gray-100 transition-colors"
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/advertiser"
-                  className="hover:text-gray-100 transition-colors"
-                >
-                  Advertiser
-                </Link>
-              </nav>
-            </div>
-
-            {/* User Authentication / Badge */}
-            <div className="flex items-center gap-4">
-              <Show when="signed-in">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-400 font-mono hidden sm:inline">Wallet Active</span>
-                  <UserButton />
-                </div>
-              </Show>
-              <Show when="signed-out">
-                <SignInButton mode="modal">
-                  <button className="bg-gradient-to-r from-[#6b21a8] to-[#4f46e5] text-white px-4 py-2 rounded-lg font-semibold text-xs transition-all border border-white/10 active:scale-95 duration-150 cursor-pointer">
-                    Sign In
-                  </button>
-                </SignInButton>
-              </Show>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content Area */}
-        <main className="w-full">
-          {children}
-        </main>
-      </body>
-    </html>
+      <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${geistMono.variable} bg-background overflow-x-hidden`} suppressHydrationWarning>
+        <body className="font-sans antialiased relative overflow-x-hidden min-h-screen w-full">
+          <FloatingOrbs />
+          <Navbar />
+          <main className="relative z-10">{children}</main>
+          <Footer />
+        </body>
+      </html>
     </ClerkProvider>
   );
 }
