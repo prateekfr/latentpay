@@ -3,18 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { SignInButton, UserButton, useUser } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import { LatentPayLogo } from "./ui/LatentPayLogo";
+import SignInChoiceModal from "./SignInChoiceModal";
 
-const NAV_LINKS = [
-  { href: "/how-it-works", label: "How It Works" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/dashboard", label: "Earn" },
-  { href: "/advertiser", label: "Advertise" },
+const ACCOUNT_LINKS = [
+  { href: "/dashboard", label: "User", role: "earner" as const },
+  { href: "/advertiser", label: "Advertiser", role: "advertiser" as const },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { isSignedIn, user } = useUser();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -23,6 +23,15 @@ export default function Navbar() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Signed out: show both account types so a visitor can pick one. Once
+  // signed in, a user has already committed to a role (assigned server-side
+  // on first dashboard/advertiser visit) — only that role's link shows, so
+  // an advertiser never sees "User" and an earner never sees "Advertiser".
+  const role = isSignedIn ? (user?.publicMetadata?.role as "advertiser" | "earner" | undefined) : undefined;
+  const NAV_LINKS = role
+    ? ACCOUNT_LINKS.filter((link) => link.role === role)
+    : ACCOUNT_LINKS;
 
   return (
     <header
@@ -102,14 +111,26 @@ export default function Navbar() {
 }
 
 function NavAuth() {
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
+  const [choiceOpen, setChoiceOpen] = useState(false);
 
   if (isSignedIn) {
+    const role = user?.publicMetadata?.role as "advertiser" | "earner" | undefined;
+    const isAdvertiser = role === "advertiser";
+
     return (
       <div className="flex items-center gap-2.5">
-        <span className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-400 font-mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-ring-green" />
-          Earning
+        <span
+          className={`hidden sm:flex items-center gap-1.5 text-xs font-mono ${
+            isAdvertiser ? "text-amber-400" : "text-emerald-400"
+          }`}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full pulse-ring-green ${
+              isAdvertiser ? "bg-amber-400" : "bg-emerald-400"
+            }`}
+          />
+          {isAdvertiser ? "Advertiser" : "Earning"}
         </span>
         <UserButton
           appearance={{
@@ -123,10 +144,14 @@ function NavAuth() {
   }
 
   return (
-    <SignInButton mode="modal">
-      <button className="btn-gradient px-4 py-2 rounded-lg text-sm cursor-pointer">
+    <>
+      <button
+        onClick={() => setChoiceOpen(true)}
+        className="btn-gradient px-4 py-2 rounded-lg text-sm cursor-pointer"
+      >
         Sign In
       </button>
-    </SignInButton>
+      <SignInChoiceModal open={choiceOpen} onClose={() => setChoiceOpen(false)} />
+    </>
   );
 }

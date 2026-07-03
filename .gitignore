@@ -26,6 +26,10 @@ coverage
 out/
 build
 dist
+*.vsix
+.vsce-stage/
+# ...except the packaged download served from the landing page.
+!apps/web/public/downloads/*.vsix
 
 
 # Debug

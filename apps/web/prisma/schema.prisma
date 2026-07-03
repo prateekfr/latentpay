@@ -15,24 +15,45 @@ model User {
   walletBalance Float        @default(0.0)
   createdAt     DateTime     @default(now())
   impressions   Impression[]
+  authTokens    AuthToken[]
 }
 
 model Advertiser {
   id          String     @id @default(cuid())
   companyName String
-  balance     Float      @default(0.0)
+  email       String
+  balance     Float      @default(500.0)
   createdAt   DateTime   @default(now())
   campaigns   Campaign[]
 }
 
 model Campaign {
-  id           String       @id @default(cuid())
-  advertiserId String
-  advertiser   Advertiser   @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
-  adCopy       String
-  targetUrl    String
-  isActive     Boolean      @default(true)
-  impressions  Impression[]
+  id                String       @id @default(cuid())
+  advertiserId      String
+  advertiser        Advertiser   @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+
+  adLine            String
+  targetUrl         String
+  companyName       String?
+  brandIconUrl      String?
+  showOnLeaderboard Boolean      @default(true)
+
+  surface           String // "extension" | "terminal"
+  deliverySpeed     String // "slow" | "medium" | "fast"
+
+  bidPerBlock       Float
+  numBlocks         Int
+  viewsPurchased    Int
+  viewsDelivered    Int          @default(0)
+  clicksDelivered   Int          @default(0)
+
+  status            String       @default("queued") // "serving" | "queued" | "paused" | "completed"
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  impressions       Impression[]
+
+  @@index([surface, status])
 }
 
 model Impression {
@@ -41,7 +62,58 @@ model Impression {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   campaignId      String
   campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  kind            String   @default("view") // "view" | "click"
   durationSeconds Float
-  payoutAmount    Float
+  cost            Float    @default(0) // full price charged to the advertiser for this event
+  payoutAmount    Float    // earner's credited share of `cost`
+  // Client-generated idempotency key (one per generation-stop event) so a
+  // retried submission (e.g. background-worker retry after a flaky response)
+  // can't double-credit the same real-world event.
+  eventId         String?  @unique
   createdAt       DateTime @default(now())
+
+  @@index([kind, createdAt])
+}
+
+// OAuth-style device authorization flow (RFC 8628 shape) so the VS Code
+// extension can sign in via the dashboard's Clerk auth (Google/email)
+// instead of the user pasting a raw user id. `id` is the secret device code
+// (known only to the requesting extension); `userCode` is the short code
+// shown to the user for display/approval. `consumedAt` makes a successful
+// poll single-use so a leaked device code can't be replayed after pickup.
+model DeviceAuthRequest {
+  id         String    @id @default(cuid())
+  userCode   String    @unique
+  status     String    @default("pending") // "pending" | "approved"
+  userId     String?
+  // Which client started this flow ("extension" | "ide") — threaded through
+  // to the sign-in page so its copy can address the right product, and to
+  // the minted AuthToken so linked-device lists can distinguish surfaces.
+  clientKind String?
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  consumedAt DateTime?
+
+  @@index([userCode])
+}
+
+// A bearer credential minted once a device-auth code is picked up
+// (poll-time, not approve-time — approval only resolves *who*; picking up
+// is when a specific client instance actually receives a usable secret).
+// Only the SHA-256 hash is stored: possession of the raw token (shown to
+// the client exactly once) is what authenticates requests, so the raw
+// value must never be recoverable from the database.
+model AuthToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientKind String    @default("unknown") // "extension" | "ide"
+  label      String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  @@index([userId])
 }
