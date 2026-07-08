@@ -1,9 +1,13 @@
 {
   "manifest_version": 3,
   "name": "LatentPay",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Earn rewards while LLMs generate answers.",
-  "permissions": ["activeTab", "storage"],
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["http://localhost:3000/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html"
   },

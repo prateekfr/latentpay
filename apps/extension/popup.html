@@ -3,98 +3,351 @@
   <head>
     <meta charset="utf-8">
     <style>
-      body {
-        width: 320px;
-        font-family: system-ui, -apple-system, sans-serif;
-        background-color: #131315;
-        color: #e5e1e4;
-        margin: 0;
-        padding: 16px;
+      * {
         box-sizing: border-box;
       }
-      .container {
+
+      body {
+        position: relative;
+        width: 340px;
+        margin: 0;
+        padding: 14px;
+        overflow: hidden;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: #08070b;
+        color: #e5e1e4;
+      }
+
+      /* Ambient aurora — three soft blurred blobs drifting behind the glass
+         card. Purely decorative; clipped by body's overflow:hidden. */
+      .aura {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(38px);
+        opacity: 0.5;
+        pointer-events: none;
+        z-index: 0;
+        will-change: transform;
+        animation: drift 11s ease-in-out infinite;
+      }
+      .aura.a1 {
+        width: 190px;
+        height: 190px;
+        top: -70px;
+        left: -50px;
+        background: radial-gradient(circle, #a855f7, transparent 70%);
+      }
+      .aura.a2 {
+        width: 210px;
+        height: 210px;
+        right: -70px;
+        bottom: -90px;
+        background: radial-gradient(circle, #6366f1, transparent 70%);
+        animation-delay: -4s;
+      }
+      .aura.a3 {
+        width: 140px;
+        height: 140px;
+        top: 38%;
+        right: -55px;
+        background: radial-gradient(circle, #ec4899, transparent 70%);
+        animation-delay: -7.5s;
+      }
+      @keyframes drift {
+        0%, 100% { transform: translate(0, 0) scale(1); }
+        50% { transform: translate(8px, -12px) scale(1.08); }
+      }
+
+      .shell {
+        position: relative;
+        z-index: 1;
         display: flex;
         flex-direction: column;
+        gap: 16px;
+        padding: 20px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+        backdrop-filter: blur(20px) saturate(140%);
+        -webkit-backdrop-filter: blur(20px) saturate(140%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow:
+          0 20px 60px -20px rgba(107, 33, 168, 0.45),
+          inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
         gap: 12px;
       }
-      .title {
-        font-size: 16px;
-        font-weight: 800;
-        margin: 0;
-        background: linear-gradient(135deg, #dfb7ff 0%, #6b21a8 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+
+      .logo {
+        position: relative;
+        flex-shrink: 0;
+        width: 27px;
+        height: 39px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      .desc {
-        font-size: 11px;
-        color: #cfc2d4;
-        line-height: 1.4;
-        margin: 0;
+      .logo svg {
+        width: 100%;
+        height: 100%;
+        animation: logo-glow 3s ease-in-out infinite;
       }
-      .form-group {
+      @keyframes logo-glow {
+        0%, 100% { filter: drop-shadow(0 2px 8px rgba(123, 91, 240, 0.35)); }
+        50% { filter: drop-shadow(0 2px 16px rgba(123, 91, 240, 0.7)); }
+      }
+
+      .brand-text {
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 2px;
+        min-width: 0;
       }
-      label {
-        font-size: 10px;
+      .title {
+        margin: 0;
+        font-size: 17px;
         font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #988d9e;
+        letter-spacing: -0.03em;
       }
-      input {
-        background-color: #0e0e10;
-        border: 1px solid #4c4452;
-        border-radius: 6px;
-        padding: 8px 12px;
-        color: #e5e1e4;
-        font-size: 12px;
-        font-family: monospace;
-        outline: none;
-        transition: border-color 0.2s;
+      .title .wm-latent { color: #f5f3ee; }
+      .title .wm-pay { color: #7b5bf0; }
+      .tagline {
+        margin: 0;
+        font-size: 11px;
+        color: #a99fc2;
       }
-      input:focus {
-        border-color: #dfb7ff;
+
+      .status-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 14px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        font-size: 12.5px;
+        color: #d9d2e8;
       }
+
+      .status-dot {
+        position: relative;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .status-dot::after {
+        content: "";
+        position: absolute;
+        inset: -5px;
+        border-radius: 50%;
+        border: 1.5px solid currentColor;
+        opacity: 0;
+      }
+      .status-dot.signed-in { background: #34d399; color: #34d399; }
+      .status-dot.signed-in::after { animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+      .status-dot.pending { background: #f59e0b; color: #f59e0b; animation: blink 1s ease-in-out infinite; }
+      .status-dot.pending::after { animation: ping 1.1s cubic-bezier(0, 0, 0.2, 1) infinite; }
+      .status-dot.signed-out { background: #6b7280; color: #6b7280; }
+      @keyframes ping {
+        0% { transform: scale(0.6); opacity: 0.7; }
+        100% { transform: scale(1.8); opacity: 0; }
+      }
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+
+      .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
       button {
-        background: linear-gradient(135deg, #dfb7ff 0%, #6b21a8 100%);
+        position: relative;
+        overflow: hidden;
         border: none;
-        border-radius: 6px;
+        border-radius: 10px;
         color: white;
-        padding: 10px;
-        font-size: 12px;
+        padding: 11px;
+        font-size: 12.5px;
         font-weight: 700;
         cursor: pointer;
-        transition: opacity 0.2s;
-      }
-      button:hover {
-        opacity: 0.9;
+        transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease, background 0.2s ease;
       }
       button:active {
-        transform: scale(0.98);
+        transform: scale(0.97);
       }
-      .status {
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+
+      #signInBtn {
+        background: linear-gradient(135deg, #c084fc 0%, #9333ea 45%, #6b21a8 100%);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 8px 24px -8px rgba(168, 85, 247, 0.65);
+      }
+      #signInBtn::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -60%;
+        width: 50%;
+        height: 100%;
+        background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+        transform: skewX(-20deg);
+        transition: left 0.6s ease;
+      }
+      #signInBtn:hover:not(:disabled)::after {
+        left: 130%;
+      }
+      #signInBtn:hover:not(:disabled) {
+        box-shadow: 0 10px 30px -8px rgba(168, 85, 247, 0.85);
+      }
+
+      button.secondary {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #cfc2d4;
+      }
+      button.secondary:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .error {
         font-size: 11px;
-        color: #34d399;
+        color: #f87171;
         text-align: center;
-        min-height: 16px;
-        margin-top: 4px;
+        min-height: 14px;
+        margin: 0;
+      }
+
+      .hint {
+        margin: -6px 0 0;
+        font-size: 11px;
+        line-height: 1.4;
+        color: #b7ade0;
+        text-align: center;
+      }
+
+      .wallet-card {
+        position: relative;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: linear-gradient(160deg, rgba(168, 85, 247, 0.14), rgba(107, 33, 168, 0.04));
+        border: 1px solid rgba(223, 183, 255, 0.16);
+        box-shadow: 0 0 30px -14px rgba(168, 85, 247, 0.5);
+      }
+      .wallet-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .wallet-label {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #cbb8ec;
+      }
+      .wallet-unit {
+        font-size: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: #8f7fae;
+      }
+      .wallet-balance {
+        margin-top: 5px;
+        font-size: 24px;
+        font-weight: 800;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: #f5f0ff;
+        letter-spacing: -0.01em;
+      }
+      .wallet-today {
+        margin-top: 2px;
+        font-size: 11.5px;
+        font-weight: 600;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: #34d399;
+      }
+
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 10px;
+        color: #6f6579;
+        margin: -4px 0 0;
+      }
+      .footer .dot-sep {
+        opacity: 0.5;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .aura, .logo svg, .status-dot::after, .status-dot.pending, #signInBtn::after {
+          animation: none !important;
+          transition: none !important;
+        }
       }
     </style>
   </head>
   <body>
-    <div class="container">
-      <h3 class="title">LatentPay Extension</h3>
-      <p class="desc">
-        Route your passive AI monetization earnings directly to your Web Portal wallet.
-      </p>
-      <div class="form-group">
-        <label for="userIdInput">Enter your LatentPay User ID</label>
-        <input type="text" id="userIdInput" placeholder="user_..." />
+    <div class="aura a1"></div>
+    <div class="aura a2"></div>
+    <div class="aura a3"></div>
+
+    <div class="shell">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 90 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <polygon points="10,10 45.2,10 90,70 45.2,130 10,130 54.8,70" fill="#7b5bf0" />
+            <polygon points="0,0 35.2,0 80,60 35.2,120 0,120 44.8,60" fill="#f5f3ee" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 class="title"><span class="wm-latent">latent</span><span class="wm-pay">pay</span></h1>
+          <p class="tagline">Get paid while AI thinks.</p>
+        </div>
       </div>
-      <button id="saveBtn">Save Settings</button>
-      <div id="statusMsg" class="status"></div>
+
+      <div id="statusRow" class="status-card">
+        <div id="statusDot" class="status-dot signed-out"></div>
+        <span id="statusLabel">Checking sign-in status&hellip;</span>
+      </div>
+
+      <p id="pendingHint" class="hint" style="display: none">
+        Approve in the browser tab that just opened, then come back here.
+      </p>
+
+      <div id="walletCard" class="wallet-card" style="display: none">
+        <div class="wallet-row">
+          <span class="wallet-label">Available Balance</span>
+          <span class="wallet-unit">USD</span>
+        </div>
+        <div class="wallet-balance"><span id="walletBalance">$0.0000</span></div>
+        <div id="walletToday" class="wallet-today">+$0.0000 today</div>
+      </div>
+
+      <div class="actions">
+        <button id="signInBtn" style="display: none">Sign in with Browser</button>
+        <button id="cancelBtn" class="secondary" style="display: none">Cancel Sign-In</button>
+        <button id="dashboardBtn" class="secondary" style="display: none">View Full Dashboard</button>
+        <button id="signOutBtn" class="secondary" style="display: none">Sign Out</button>
+      </div>
+
+      <p id="errorMsg" class="error"></p>
+
+      <div class="footer">
+        <span>v0.3.0</span>
+        <span class="dot-sep">&bull;</span>
+        <span>Syncs automatically</span>
+      </div>
     </div>
     <script src="popup.js"></script>
   </body>

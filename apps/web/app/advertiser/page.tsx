@@ -1,8 +1,14 @@
 import prisma from "../../lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { assignRole, readRole } from "../../lib/role";
+import { serializeCampaign } from "../../lib/campaigns";
 import AdvertiserClient from "./AdvertiserClient";
+import type { CampaignDTO } from "./types";
 
 export const dynamic = "force-dynamic";
+
+const DEFAULT_SURFACE = "extension" as const;
 
 export default async function AdvertiserPage() {
   const { userId } = await auth();
@@ -10,55 +16,75 @@ export default async function AdvertiserPage() {
   if (!userId) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="glass rounded-2xl p-10 text-center max-w-sm mx-4 border border-white/[0.07]">
+        <div className="card-surface rounded-2xl p-10 text-center max-w-sm mx-4">
           <div className="text-4xl mb-4">🔐</div>
           <h2 className="font-display font-bold text-white text-xl mb-2">Sign in required</h2>
-          <p className="text-white/40 text-sm">Please sign in to access the Advertiser Command Center.</p>
+          <p className="text-white/40 text-sm">Please sign in to access the Campaign Portal.</p>
         </div>
       </div>
     );
   }
 
-  const advertiserId = userId;
+  const clerkUser = await currentUser();
+  const role = readRole(clerkUser);
 
-  await prisma.advertiser.upsert({
-    where: { id: advertiserId },
-    update: {},
-    create: { id: advertiserId, companyName: "Acme Corp Sponsors", balance: 500.0 },
-  });
-
-  const campaignsCheck = await prisma.campaign.findMany({ where: { advertiserId } });
-  if (campaignsCheck.length === 0) {
-    await prisma.campaign.create({
-      data: {
-        id: `campaign-${advertiserId}`,
-        advertiserId,
-        adCopy: "Scale your LLM apps dynamically with Acme API",
-        targetUrl: "https://acme.com",
-        isActive: true,
-      },
-    });
+  if (role === "earner") {
+    redirect("/dashboard");
+  }
+  if (!role) {
+    await assignRole(userId, "advertiser");
   }
 
-  const advertiser = await prisma.advertiser.findUnique({ where: { id: advertiserId } });
-  const campaigns = await prisma.campaign.findMany({
-    where: { advertiserId },
-    include: { _count: { select: { impressions: true } } },
-    orderBy: { id: "asc" },
+  const email = clerkUser?.primaryEmailAddress?.emailAddress ?? "";
+
+  const advertiser = await prisma.advertiser.upsert({
+    where: { id: userId },
+    update: {},
+    create: { id: userId, companyName: "My Company", email, balance: 500.0 },
   });
+
+  const campaigns = await prisma.campaign.findMany({
+    where: { advertiserId: userId },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const spendByCampaign = await prisma.impression.groupBy({
+    by: ["campaignId"],
+    where: { campaign: { advertiserId: userId } },
+    _sum: { cost: true },
+  });
+  const spendMap = new Map(spendByCampaign.map((s) => [s.campaignId, s._sum.cost ?? 0]));
+
+  const bidQueue = await prisma.campaign.findMany({
+    where: {
+      surface: DEFAULT_SURFACE,
+      showOnLeaderboard: true,
+      status: { in: ["serving", "queued"] },
+    },
+    orderBy: [{ bidPerBlock: "desc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      adLine: true,
+      companyName: true,
+      brandIconUrl: true,
+      bidPerBlock: true,
+      viewsDelivered: true,
+      status: true,
+    },
+  });
+
+  const campaignDTOs: CampaignDTO[] = campaigns.map(
+    (c) => serializeCampaign(c, spendMap.get(c.id) ?? 0) as CampaignDTO,
+  );
 
   return (
     <AdvertiserClient
-      companyName={advertiser?.companyName ?? "Acme Corp Sponsors"}
-      balance={advertiser?.balance ?? 0}
-      campaigns={campaigns.map((c) => ({
-        id: c.id,
-        adCopy: c.adCopy,
-        targetUrl: c.targetUrl,
-        isActive: c.isActive,
-        impressionCount: c._count.impressions,
-        spend: c._count.impressions * 0.015,
-      }))}
+      email={advertiser.email || email}
+      companyName={advertiser.companyName}
+      balance={advertiser.balance}
+      campaigns={campaignDTOs}
+      initialSurface={DEFAULT_SURFACE}
+      initialBidQueue={bidQueue.map((c) => ({ ...c, status: c.status as CampaignDTO["status"] }))}
     />
   );
 }

@@ -1,0 +1,91 @@
+{
+  "name": "ide",
+  "displayName": "LatentPay",
+  "publisher": "latentpay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Earn rewards for the idle seconds your AI assistant spends thinking — right in your VS Code sidebar.",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "latentpay",
+          "title": "LatentPay",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "latentpay": [
+        {
+          "type": "webview",
+          "id": "latentpay.sidebar",
+          "name": "Earnings"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "latentpay.signInWithBrowser",
+        "title": "LatentPay: Sign in with Browser (Google/Email)"
+      },
+      {
+        "command": "latentpay.signOut",
+        "title": "LatentPay: Sign out"
+      },
+      {
+        "command": "latentpay.showStatus",
+        "title": "LatentPay: Show status"
+      },
+      {
+        "command": "latentpay.openMenu",
+        "title": "LatentPay: Menu"
+      }
+    ],
+    "configuration": {
+      "title": "LatentPay",
+      "properties": {
+        "latentpay.viewThresholdSeconds": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 600,
+          "description": "Seconds of active AI generation required before an impression is credited."
+        },
+        "latentpay.backendBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Override the LatentPay backend base URL. Leave empty to use the default (http://localhost:3000 during local development)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "dev": "node esbuild.mjs --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "package": "node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^2.31.0",
+    "esbuild": "^0.23.0",
+    "typescript": "5.9.2",
+    "vitest": "^2.0.5"
+  },
+  "keywords": [
+    "claude-code",
+    "ai",
+    "earnings",
+    "latentpay"
+  ]
+}

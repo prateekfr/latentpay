@@ -73,11 +73,15 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-14 pt-6 border-t border-white/[0.05] flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-white/25">
-            © 2025 LatentPay, Inc. All rights reserved.
+        <div className="mt-14 pt-6 border-t border-white/[0.05] grid grid-cols-1 sm:grid-cols-3 items-center gap-4">
+          <p className="text-xs text-white/25 text-center sm:text-left justify-self-center sm:justify-self-start">
+            © 2026 LatentPay, Inc. All rights reserved.
           </p>
-          <div className="flex items-center gap-1.5 text-xs text-white/25 font-mono">
+          <p className="flex items-center gap-1.5 text-xs text-white/25 justify-self-center order-first sm:order-none">
+            Made with <span className="heartbeat text-red-500">❤️</span> from{" "}
+            <span className="gradient-text-india font-semibold">India</span>
+          </p>
+          <div className="flex items-center gap-1.5 text-xs text-white/25 font-mono justify-self-center sm:justify-self-end">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             All systems operational
           </div>

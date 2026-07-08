@@ -1,0 +1,140 @@
+body {
+  margin: 0;
+  padding: 12px;
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  color: var(--vscode-foreground);
+  background: transparent;
+}
+
+.banner-card {
+  background: var(--vscode-sideBar-background, #1e1e2e);
+  border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.banner-card.clickable {
+  cursor: pointer;
+}
+
+.banner-card.clickable:hover {
+  border-color: rgba(123, 91, 240, 0.5);
+  background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.04));
+}
+
+.banner-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #7b5bf0, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(123, 91, 240, 0.35);
+}
+
+.info-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sponsor-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground, #9aa0a6);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sponsor-msg {
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.status-container {
+  display: flex;
+  align-items: center;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-pill.pending {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.status-pill.success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.checkmark-icon {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.progress-bar-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #7b5bf0, #a855f7);
+  transition: width 0.1s linear, background-color 0.3s ease;
+}
+
+.progress-bar-fill.finished {
+  background: #10b981;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.8); opacity: 0.5; }
+}

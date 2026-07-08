@@ -8,6 +8,34 @@
   let tickerInterval = null;
   let hasMetThreshold = false;
 
+  // The real, currently-winning ad for this surface (from the auction
+  // endpoint) — null when no advertiser is currently serving. Refreshed
+  // periodically in the background so it's ready the instant a generation
+  // starts, rather than fetching (and racing) at start time.
+  let currentAd = null;
+  // Snapshot of `currentAd` taken at the moment a generation started, so the
+  // impression billed on stop always matches what was actually displayed.
+  let activeAdForImpression = null;
+
+  // The background service worker owns the actual network call (and its own
+  // 1-minute refresh cadence) — this just asks for whatever it currently has
+  // cached, so multiple tabs share one fetch instead of each polling the
+  // network independently, and so the request isn't subject to this page's
+  // CSP (see background.js's header comment for why that matters).
+  function refreshCurrentAd() {
+    chrome.runtime
+      .sendMessage({ type: "GET_CURRENT_AD" })
+      .then((response) => {
+        currentAd = (response && response.ad) || null;
+      })
+      .catch(() => {
+        currentAd = null;
+      });
+  }
+
+  refreshCurrentAd();
+  setInterval(refreshCurrentAd, 30000);
+
   // Claude text change tracking state
   let lastClaudeText = "";
   let lastClaudeTextTime = 0;
@@ -414,7 +442,7 @@
   }
 
   // Create and configure the sleek Shadow DOM sponsor banner element
-  function createSponsorBanner() {
+  function createSponsorBanner(ad) {
     const banner = document.createElement("latentpay-banner");
     const shadow = banner.attachShadow({ mode: "open" });
 
@@ -430,13 +458,13 @@
     const style = document.createElement("style");
     style.textContent = `
       :host {
-        --bg-color: #ffffff;
-        --border-color: rgba(0, 0, 0, 0.08);
+        --bg-color: rgba(255, 255, 255, 0.72);
+        --border-color: rgba(107, 33, 168, 0.12);
         --text-color: #1f2937;
         --text-muted: #6b7280;
-        --accent-gradient: linear-gradient(135deg, #6366f1, #a855f7);
-        --progress-bg: #e5e7eb;
-        --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        --accent-gradient: linear-gradient(135deg, #c084fc, #9333ea 55%, #6b21a8);
+        --progress-bg: rgba(0, 0, 0, 0.08);
+        --card-shadow: 0 20px 50px -20px rgba(107, 33, 168, 0.35), 0 2px 8px rgba(0, 0, 0, 0.06);
         --success-color: #10b981;
         --success-bg: rgba(16, 185, 129, 0.08);
         --success-border: rgba(16, 185, 129, 0.2);
@@ -458,13 +486,13 @@
       }
 
       :host(.dark-theme) {
-        --bg-color: #1e1e2e;
-        --border-color: rgba(255, 255, 255, 0.08);
-        --text-color: #cdd6f4;
-        --text-muted: #a6adc8;
-        --accent-gradient: linear-gradient(135deg, #89b4fa, #cba6f7);
-        --progress-bg: #313244;
-        --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        --bg-color: rgba(19, 19, 21, 0.72);
+        --border-color: rgba(223, 183, 255, 0.14);
+        --text-color: #ece6f0;
+        --text-muted: #a99fc2;
+        --accent-gradient: linear-gradient(135deg, #dfb7ff, #a855f7 55%, #6b21a8);
+        --progress-bg: rgba(255, 255, 255, 0.08);
+        --card-shadow: 0 20px 50px -20px rgba(168, 85, 247, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
         --dot-color: #f38ba8;
         --dot-bg: rgba(243, 139, 168, 0.1);
         --dot-border: rgba(243, 139, 168, 0.2);
@@ -472,8 +500,10 @@
 
       .banner-card {
         background: var(--bg-color);
+        backdrop-filter: blur(20px) saturate(150%);
+        -webkit-backdrop-filter: blur(20px) saturate(150%);
         border: 1px solid var(--border-color);
-        border-radius: 12px;
+        border-radius: 14px;
         box-shadow: var(--card-shadow);
         padding: 14px 18px;
         display: flex;
@@ -503,7 +533,7 @@
         font-weight: 800;
         font-size: 16px;
         flex-shrink: 0;
-        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+        box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
         animation: logo-glowing 2s infinite ease-in-out;
       }
 
@@ -606,9 +636,9 @@
       }
 
       @keyframes logo-glowing {
-        0% { filter: drop-shadow(0 0 2px rgba(99, 102, 241, 0.2)); }
-        50% { filter: drop-shadow(0 0 6px rgba(99, 102, 241, 0.6)); }
-        100% { filter: drop-shadow(0 0 2px rgba(99, 102, 241, 0.2)); }
+        0% { filter: drop-shadow(0 0 2px rgba(168, 85, 247, 0.25)); }
+        50% { filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.65)); }
+        100% { filter: drop-shadow(0 0 2px rgba(168, 85, 247, 0.25)); }
       }
 
       @keyframes scale-up {
@@ -620,12 +650,19 @@
     const card = document.createElement("div");
     card.className = "banner-card";
 
+    const title = ad && ad.companyName ? escapeHtml(ad.companyName) : "Sponsored by LatentPay";
+    const message = ad && ad.adLine ? escapeHtml(ad.adLine) : "Supporting free queries. View rewards active.";
+    const logoHtml =
+      ad && ad.brandIconUrl
+        ? `<img src="${escapeHtml(ad.brandIconUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />`
+        : `<svg viewBox="0 0 90 130" style="width:58%;height:58%;" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><polygon points="0,0 35.2,0 80,60 35.2,120 0,120 44.8,60" fill="#f5f3ee"/></svg>`;
+
     card.innerHTML = `
       <div class="banner-left">
-        <div class="logo-icon">L</div>
+        <div class="logo-icon">${logoHtml}</div>
         <div class="info-text">
-          <div class="sponsor-title">Sponsored by LatentPay</div>
-          <div class="sponsor-msg">Supporting free queries. View rewards active.</div>
+          <div class="sponsor-title">${title}</div>
+          <div class="sponsor-msg">${message}</div>
         </div>
       </div>
       <div class="status-container">
@@ -643,6 +680,19 @@
     shadow.appendChild(card);
 
     return banner;
+  }
+
+  // Advertiser-supplied fields (adLine, companyName) are rendered via
+  // innerHTML above — escape before interpolating to prevent a malicious
+  // campaign from injecting markup/script into the page.
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    })[c]);
   }
 
   // Update the progress UI inside the banner Shadow DOM
@@ -727,6 +777,15 @@
 
     console.log("[LatentPay] Active generation start detected.");
 
+    // Nothing is currently winning this surface's auction — don't show a
+    // banner (and don't bill an impression) for an ad that isn't real.
+    if (!currentAd) {
+      console.log("[LatentPay] No live campaign for this surface; skipping banner.");
+      activeAdForImpression = null;
+      return;
+    }
+    activeAdForImpression = currentAd;
+
     // Idempotency cleanup: remove any existing banner to avoid duplicates
     const existing = document.querySelector("latentpay-banner");
     if (existing) {
@@ -740,7 +799,7 @@
     const target = findLatestAssistantTurnContent();
     if (target) {
       activeBannerTarget = target;
-      activeBanner = createSponsorBanner();
+      activeBanner = createSponsorBanner(activeAdForImpression);
       injectBanner(target, activeBanner);
 
       // Adjust root bounds immediately to center the banner
@@ -789,53 +848,39 @@
       `[LatentPay] Generation completed. Duration: ${duration.toFixed(2)}s`,
     );
 
-    // If duration is at least 5 seconds, submit the real ingestion payload
-    if (duration >= 5.0) {
-      chrome.storage.sync.get(["userId"], (result) => {
-        const storedUserId = result.userId;
-        if (!storedUserId) {
-          console.warn(
-            "[LatentPay WARN] No User ID found in storage. Aborting API fetch request.",
+    // If duration is at least 5 seconds AND a real ad was actually shown,
+    // submit the real ingestion payload against that campaign. The
+    // background worker attaches the bearer token — this content script
+    // never touches auth at all, only the ad/duration data.
+    if (duration >= 5.0 && activeAdForImpression) {
+      const payload = {
+        campaignId: activeAdForImpression.id,
+        durationSeconds: parseFloat(duration.toFixed(2)),
+        kind: "view",
+        // One id per real generation-stop event, so a retried/duplicated
+        // message to the background worker can't double-credit the payout.
+        eventId: crypto.randomUUID(),
+      };
+
+      console.log("[LatentPay] Submitting Impression Payload:", payload);
+
+      chrome.runtime
+        .sendMessage({ type: "SUBMIT_IMPRESSION", payload })
+        .then((response) => {
+          if (!response || !response.success) {
+            throw new Error((response && response.error) || "Failed to submit impression");
+          }
+          console.log(
+            `[LatentPay] Payout transaction successful! Wallet balance: ${response.data.walletBalance}`,
+            response,
           );
-          return;
-        }
-
-        const payload = {
-          userId: storedUserId,
-          campaignId: "mock-campaign-abc",
-          durationSeconds: parseFloat(duration.toFixed(2)),
-        };
-
-        console.log("[LatentPay] Submitting Impression Payload:", payload);
-
-        fetch("http://localhost:3000/api/v1/impressions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
         })
-          .then((response) => {
-            if (!response.ok) {
-              return response.json().then((err) => {
-                throw new Error(err.error || "Failed to submit impression");
-              });
-            }
-            return response.json();
-          })
-          .then((data) => {
-            console.log(
-              `[LatentPay] Payout transaction successful! Wallet balance: ${data.data.walletBalance}`,
-              data,
-            );
-          })
-          .catch((error) => {
-            console.error(
-              "[LatentPay] Failed to send impression to ingestion server:",
-              error,
-            );
-          });
-      });
+        .catch((error) => {
+          console.error(
+            "[LatentPay] Failed to send impression to ingestion server:",
+            error,
+          );
+        });
     } else {
       console.log(
         `[LatentPay] Impression duration (${duration.toFixed(2)}s) under 5s payout threshold. Not submitted.`,
@@ -860,6 +905,7 @@
 
     activeBanner = null;
     activeBannerTarget = null;
+    activeAdForImpression = null;
     startTime = 0;
 
     // Reset all tracking and streaming variables cleanly
@@ -918,7 +964,7 @@
         "[LatentPay] Generation stopped, aborted manually, or completed.",
       );
       stopGeneration();
-    } else if (isGenerating) {
+    } else if (isGenerating && activeAdForImpression) {
       // Check if the banner exists anywhere in the active DOM tree
       const banner = document.querySelector("latentpay-banner");
 
@@ -930,7 +976,7 @@
         if (currentTarget) {
           activeBannerTarget = currentTarget;
           if (!activeBanner) {
-            activeBanner = createSponsorBanner();
+            activeBanner = createSponsorBanner(activeAdForImpression);
           }
           injectBanner(currentTarget, activeBanner);
           updateRootBounds();
